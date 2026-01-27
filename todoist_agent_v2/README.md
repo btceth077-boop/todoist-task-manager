@@ -3,6 +3,47 @@
 n8n workflow для управления задачами Todoist через Telegram с помощью AI-агента.
 Расширенная версия с inline-кнопками, умным форматированием, аналитикой и геймификацией.
 
+---
+
+## Содержание
+
+- [Quick Start](#quick-start)
+- [Что нового в v2](#что-нового-в-v2)
+- [Возможности](#возможности)
+- [Архитектура v2](#архитектура-v2)
+- [Требования](#требования)
+- [Установка](#установка)
+- [Примеры команд](#примеры-команд)
+- [Callback Data Format](#callback-data-format)
+- [API Endpoints](#api-endpoints-todoist-rest-v2)
+- [Настройки](#настройки)
+- [Хранение данных](#хранение-данных)
+- [Error Handling](#error-handling)
+- [Решение проблем](#решение-проблем)
+- [Версии](#версии)
+- [Telegram MarkdownV2](#telegram-markdownv2--экранирование-символов)
+- [Todoist API ограничения](#todoist-api--важные-ограничения)
+- [Roadmap v3](#roadmap-v3)
+- [Источники](#источники)
+
+---
+
+## Quick Start
+
+**Запуск за 5 минут:**
+
+1. **Получи Chat ID** — отправь `/start` боту [@userinfobot](https://t.me/userinfobot)
+2. **Импортируй** `Task_Manager_v2.json` в n8n
+3. **Настрой credentials:**
+   - OpenAI API (для AI Agent)
+   - Todoist OAuth2 (scopes: `data:read_write`)
+   - Telegram Bot Token
+4. **Укажи Chat ID** в настройках Telegram нод
+5. **Активируй** workflow
+6. **Готово!** Напиши боту "Покажи задачи"
+
+---
+
 ## Что нового в v2
 
 | Функция | Описание |
@@ -449,6 +490,24 @@ action:task_id:value
 | Complete Task | POST | `/rest/v2/tasks/{id}/close` |
 | Delete Task | DELETE | `/rest/v2/tasks/{id}` |
 
+### Параметры Update Task (Todoist REST v2)
+
+| Параметр | Тип | Описание |
+|----------|-----|----------|
+| content | string | Новое название задачи |
+| description | string | Новое описание |
+| labels | array | Новые метки (заменяет существующие) |
+| priority | int | Новый приоритет (1-4) |
+| due_string | string | Новая дата на естественном языке |
+| due_date | string | Новая дата в формате `YYYY-MM-DD` |
+| due_datetime | string | Новая дата и время (RFC3339) |
+| due_lang | string | Язык для парсинга due_string |
+| assignee_id | string | ID нового ответственного |
+| duration | int | Новая длительность |
+| duration_unit | string | `minute` или `day` |
+
+> ⚠️ **Важно:** Update Task использует метод POST, а не PUT/PATCH
+
 ### Все параметры Create Task (Todoist REST v2)
 
 | Параметр | Тип | Описание |
@@ -534,11 +593,136 @@ data.users['123456789'] = {
 };
 ```
 
-### Вариант 2: Google Sheets
+### Вариант 2: Google Sheets (рекомендуется)
 
-Таблица со столбцами:
-| user_id | date | tasks_completed | streak | notes |
-|---------|------|-----------------|--------|-------|
+**Структура таблицы "user_stats":**
+
+| user_id | date | tasks_completed | current_streak | longest_streak | last_overdue_notify |
+|---------|------|-----------------|----------------|----------------|---------------------|
+| 123456789 | 2024-01-20 | 5 | 7 | 14 | 2024-01-26T08:00:00Z |
+| 123456789 | 2024-01-21 | 3 | 8 | 14 | 2024-01-27T08:00:00Z |
+| 123456789 | 2024-01-22 | 4 | 9 | 14 | 2024-01-28T08:00:00Z |
+
+**Пример чтения из Google Sheets в n8n:**
+```javascript
+// В Code node после Google Sheets node
+const rows = $input.all();
+const userId = '123456789';
+
+const userStats = rows.find(row => row.json.user_id === userId);
+
+return [{
+  json: {
+    current_streak: userStats?.json.current_streak || 0,
+    longest_streak: userStats?.json.longest_streak || 0
+  }
+}];
+```
+
+**Пример записи:**
+```javascript
+// Данные для Google Sheets Append Row
+return [{
+  json: {
+    user_id: $json.chat_id,
+    date: new Date().toISOString().split('T')[0],
+    tasks_completed: 1,
+    current_streak: $json.current_streak + 1,
+    longest_streak: Math.max($json.longest_streak, $json.current_streak + 1),
+    last_overdue_notify: null
+  }
+}];
+```
+
+---
+
+## Error Handling
+
+### Формат сообщений об ошибках
+
+**Ошибка API Todoist:**
+```
+❌ Ошибка
+
+Не удалось создать задачу.
+Причина: Todoist API недоступен
+
+🔄 Попробуй через пару минут
+```
+
+**Ошибка Rate Limit (429):**
+```
+⏳ Слишком много запросов
+
+Todoist ограничил количество запросов.
+Подожди 1-2 минуты и попробуй снова.
+
+Лимит: 450 запросов / 15 минут
+```
+
+**Задача не найдена:**
+```
+🔍 Задача не найдена
+
+Не могу найти задачу "купить молоко".
+Возможно, она уже выполнена или удалена.
+
+Попробуй: "Покажи все задачи"
+```
+
+**Проект не найден:**
+```
+📁 Проект не найден
+
+Не могу найти проект "Работа".
+Доступные проекты:
+• Inbox
+• Личное
+• Финансы
+
+Попробуй указать точное название.
+```
+
+### Обработка ошибок в n8n
+
+В каждом HTTP Request node добавь Error Workflow:
+
+```javascript
+// Code node для обработки ошибок
+const error = $input.item.json;
+const statusCode = error.statusCode || 500;
+
+let message = '❌ Произошла ошибка';
+
+if (statusCode === 429) {
+  message = '⏳ Слишком много запросов\\. Подожди 1\\-2 минуты\\.';
+} else if (statusCode === 401) {
+  message = '🔐 Ошибка авторизации\\. Проверь Todoist credentials\\.';
+} else if (statusCode === 404) {
+  message = '🔍 Ресурс не найден\\.';
+} else if (statusCode >= 500) {
+  message = '🔧 Сервер Todoist временно недоступен\\.';
+}
+
+return [{
+  json: {
+    chat_id: $('Telegram Trigger').item.json.message.chat.id,
+    text: message,
+    parse_mode: 'MarkdownV2'
+  }
+}];
+```
+
+### Retry Logic
+
+Для критичных операций добавь retry:
+
+```javascript
+// В Settings HTTP Request node:
+// - Retry on Fail: Yes
+// - Max Tries: 3
+// - Wait Between Tries: 1000ms
+```
 
 ---
 
@@ -550,6 +734,39 @@ data.users['123456789'] = {
 - **Важно:** callback_data ограничен 64 байтами — используй короткие ID
 - Не забудь вызвать `answerCallbackQuery` чтобы убрать "loading" с кнопки
 - Проверь логи n8n на ошибки
+
+**Пример answerCallbackQuery в n8n:**
+```javascript
+// HTTP Request node после обработки callback
+// Method: POST
+// URL: https://api.telegram.org/bot{{$credentials.telegramApi.token}}/answerCallbackQuery
+
+// Body (JSON):
+{
+  "callback_query_id": "{{ $json.callback_query.id }}",
+  "text": "✅ Готово!",
+  "show_alert": false
+}
+
+// show_alert: false — всплывающее уведомление сверху
+// show_alert: true — модальное окно с кнопкой OK
+```
+
+**Полный пример Callback Handler workflow:**
+```
+Telegram Trigger (Callback Query)
+    ↓
+Code Node (Parse callback_data)
+    ↓
+Switch (action type)
+    ↓
+├── complete → HTTP Request (Close Task) → answerCallbackQuery
+├── delete → HTTP Request (Delete Task) → answerCallbackQuery
+├── due → HTTP Request (Update Task) → answerCallbackQuery
+└── priority → HTTP Request (Update Task) → answerCallbackQuery
+    ↓
+Telegram Send (обновить сообщение с результатом)
+```
 
 ### Дайджест не приходит
 - Проверь что workflow активен
