@@ -1,19 +1,19 @@
 {
-  "name": "Task Manager",
+  "name": "Task Manager v2",
   "nodes": [
     {
       "parameters": {
         "promptType": "define",
-        "text": "=User's request: {{ $json.message }}\n\n#overview\nYou are a task manager assistant. Your responsibilities include creating, retrieving, updating, and deleting tasks in the user's task management system. User has multiple projects in Todoist.\n\n**Project Management**\n- Use \"Get Projects\" to get list of all projects with their IDs and names.\n- ALWAYS use Get Projects first when user mentions a project by name to find the correct project_id.\n- If user doesn't specify a project, don't pass project_id (task will go to Inbox).\n\n**Task Management Tools**\n\n- Use \"Get Tasks\" to fetch tasks. If project_id is provided - get tasks from that project only. If not provided - get ALL active tasks from all projects. Show: title, due date, project name, id.\n- Use \"Create Task\" for new tasks. Use Get Projects first to find project_id if user specifies a project. For subtasks, use Get Tasks to find parent_id.\nIf user didn't get any notes for the task just put one space in there. \nIf user didn't set date and time, choose today's date,+1 hour from now.\nIf the user specified the day of the week, use the following one. First look at the date: Today: {{ $now }}, {{ $now.weekdayLong }} and see when the next day of the week selected by the user is. \n- Use \"Delete Task\" to remove a task. You must use \"Get Tasks\" first to retrieve the task ID before deletion.\n- Use \"Complete Task\" to complete the task. You must use \"Get Tasks\" first to get the ID of the task to complete.\n- Use \"Update Time\" to update the task deadline. You must use \"Get Tasks\" first to get the ID of the task to update.\n\n**Subtasks**\n- To create a subtask, use \"Create Task\" with parent_id of the parent task.\n- Use \"Get Tasks\" first to find the parent task ID.\n\n##Final Notes\nHere is the current date/time: {{ $now.setZone('Europe/Sarajevo') }} \nMy week starts from Monday and ends on Sunday.\nIf i said next Monday, you should choose next monday from this date. So if today is february 13 thursday and i said create task fot the next Monday, than you should set February 17. Count carefully. \nIf a due date or priority isn't specified, assume a standard priority and a due date of one week from now. Give answer in Russian. The finite response should be in a friendly and soft style, as if you were replying to your best friend, moderate amounts of emoticons and jokes can be used. ",
+        "text": "=User's request: {{ $json.message }}\n\n# Overview\nYou are a task manager assistant for Todoist. Your responsibilities include creating, retrieving, updating, completing, deleting, and searching tasks. User has multiple projects in Todoist.\n\n# Response Formatting\nALWAYS format your responses beautifully using these patterns:\n\n**Task list format:**\n📋 Задачи на сегодня\n\n1. Название задачи\n   📁 Проект • 📅 Дата • 🔴 P1\n\n2. Другая задача\n   📁 Проект • 📅 Дата • 🟠 P2\n\nВсего: X задач\n\n**Task created format (IMPORTANT - use EXACTLY this format with [TASK_ID:xxx]):**\n✅ Задача создана!\n\n📌 Название задачи\n📁 Проект: Название\n📅 Дедлайн: Дата\n🔴 Приоритет: P1\n[TASK_ID:здесь_id_задачи_из_ответа_API]\n\nCRITICAL: After creating a task, ALWAYS include [TASK_ID:xxx] at the end of your response where xxx is the task id from the Create Task API response. This is required for inline buttons to work!\n\n**Task completed format:**\n✅ Задача выполнена!\n\n📌 Название задачи\n\n**Search results format:**\n🔍 Поиск: \"ключевое слово\"\n\nНайдено X задач:\n\n1. Название\n   📁 Проект • 📅 Дата • 🔴 P1\n\n**Error format:**\n❌ Ошибка\n\nОписание проблемы.\n\n🔄 Попробуй через пару минут\n\n**Priority icons:**\n- 🔴 P1 (priority: 4 in API) - Срочный\n- 🟠 P2 (priority: 3 in API) - Высокий  \n- 🟡 P3 (priority: 2 in API) - Средний\n- ⚪ P4 (priority: 1 in API) - Обычный (default)\n\n# Project Management\n- Use \"Get Projects\" to get list of all projects with their IDs and names.\n- ALWAYS use Get Projects first when user mentions a project by name to find the correct project_id.\n- If user doesn't specify a project, don't pass project_id (task will go to Inbox).\n- Always show project name in responses, not just ID.\n\n# Task Management Tools\n\n**Get Tasks:**\n- If project_id is provided - get tasks from that project only\n- If not provided - get ALL active tasks from all projects\n- Use filter parameter for special queries: \"overdue\", \"today\", \"p1\", \"p2\"\n- Show: title, due date, project name, priority, id\n\n**Create Task:**\n- Use Get Projects first to find project_id if user specifies a project\n- For subtasks, use Get Tasks to find parent_id\n- Parameters available: content (required), description, project_id, parent_id, priority (1-4), due_string, due_date, labels\n- due_string should be in English (\"tomorrow\", \"next monday\", \"today at 15:00\")\n- If user didn't specify date, use \"today\"\n- If user didn't specify priority, use default (1)\n\n**Update Task:**\n- Use POST method to /rest/v2/tasks/{task_id}\n- Can update: content, description, priority, due_string, due_date, labels\n- Use Get Tasks first to find task_id\n\n**Complete Task:**\n- Use POST to /rest/v2/tasks/{task_id}/close\n- Use Get Tasks first to find task_id\n\n**Delete Task:**\n- Use DELETE to /rest/v2/tasks/{task_id}\n- Use Get Tasks first to find task_id\n\n**Search Tasks:**\n- Use Get Tasks with appropriate filters\n- For keyword search, get all tasks and filter by content containing the keyword\n\n# Subtasks\n- To create a subtask, use \"Create Task\" with parent_id of the parent task\n- Use \"Get Tasks\" first to find the parent task ID\n\n# Overdue Tasks\nWhen user asks about overdue tasks, use Get Tasks with filter=\"overdue\"\n\n# Date/Time Rules\n- Current date/time: {{ $now.setZone('Europe/Sarajevo') }}\n- Week starts from Monday\n- If user says \"next Monday\" and today is Thursday Feb 13, next Monday is Feb 17\n- Always calculate dates carefully\n- For Russian date words: сегодня=today, завтра=tomorrow, послезавтра=day after tomorrow\n\n# Priority Mapping (IMPORTANT!)\nTodoist API uses INVERTED priority values:\n- User says P1 (urgent) → API priority: 4\n- User says P2 (high) → API priority: 3\n- User says P3 (medium) → API priority: 2\n- User says P4 (normal) → API priority: 1\n\n# Response Language & Style\n- Always respond in Russian\n- Be friendly and soft, like talking to a best friend\n- Use moderate emojis\n- Can use light jokes occasionally\n- Keep responses structured and easy to read",
         "options": {}
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.7,
       "position": [
-        464,
-        160
+        208,
+        3296
       ],
-      "id": "fc620358-34c2-4b97-a9c1-7e061e113a24",
+      "id": "5d0c4721-d1ab-4b08-8e0a-55766f3ff80a",
       "name": "AI Agent"
     },
     {
@@ -29,10 +29,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.2,
       "position": [
-        320,
-        464
+        32,
+        3616
       ],
-      "id": "4d2ee82a-a68c-4831-a987-a9478a14831b",
+      "id": "c50b8bd0-f0ac-48ed-8cc3-1f1ff3cc1d59",
       "name": "OpenAI Chat Model",
       "credentials": {
         "openAiApi": {
@@ -50,26 +50,27 @@
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
       "typeVersion": 1.3,
       "position": [
-        464,
-        464
+        176,
+        3616
       ],
-      "id": "c116defa-5923-46b9-9841-f644c7b17161",
+      "id": "401711ef-0a5c-4154-aeb6-3847e0b27022",
       "name": "Window Buffer Memory"
     },
     {
       "parameters": {
         "updates": [
-          "message"
+          "message",
+          "callback_query"
         ],
         "additionalFields": {}
       },
       "type": "n8n-nodes-base.telegramTrigger",
       "typeVersion": 1.1,
       "position": [
-        -624,
-        144
+        -1072,
+        3312
       ],
-      "id": "1dd2a92d-d3b7-4019-b152-f6bc02817436",
+      "id": "68de6619-1cc9-4262-bbba-f3dce68fa18c",
       "name": "Telegram Trigger",
       "webhookId": "7da63015-ed9e-4448-85a9-12bd50fd80a5",
       "credentials": {
@@ -81,7 +82,7 @@
     },
     {
       "parameters": {
-        "chatId": "={{ $('Telegram Trigger').item.json.message.from.id }}",
+        "chatId": "={{ $('Telegram Trigger').item.json.message?.from?.id || $('Telegram Trigger').item.json.callback_query?.from?.id }}",
         "text": "={{ $json.output }}",
         "additionalFields": {
           "appendAttribution": false
@@ -90,11 +91,11 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        928,
-        160
+        816,
+        3280
       ],
-      "id": "a2c5f254-cefd-46d8-b096-ddb51d59bf33",
-      "name": "Telegram",
+      "id": "148049f0-4ecc-4955-8d9f-56dcda33733c",
+      "name": "Telegram Send",
       "webhookId": "5df9c071-c573-44a9-bcbb-009da050d8b0",
       "credentials": {
         "telegramApi": {
@@ -156,6 +157,31 @@
               },
               "renameOutput": true,
               "outputKey": "voice"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "callback-condition",
+                    "leftValue": "={{ $json.callback_query }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "object",
+                      "operation": "exists",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "callback"
             }
           ]
         },
@@ -164,10 +190,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        -400,
-        144
+        -832,
+        3296
       ],
-      "id": "5bbd57b7-89e2-4cdc-bb8b-da1caf57f7aa",
+      "id": "9c9dc675-db84-4196-92fa-318f53908488",
       "name": "Switch"
     },
     {
@@ -177,7 +203,7 @@
             {
               "id": "4df49a35-833a-4633-922e-971c12d5a949",
               "name": "message",
-              "value": "={{ $json.message.text }}",
+              "value": "={{ $('Switch').item.json.message.text }}",
               "type": "string"
             }
           ]
@@ -187,26 +213,26 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        0,
-        0
+        -304,
+        3200
       ],
-      "id": "8fcf3119-89f4-45ce-bb45-684ebb5792f7",
+      "id": "74e7df1d-8621-42c4-be47-aa02dbce8f15",
       "name": "Edit Fields"
     },
     {
       "parameters": {
         "resource": "file",
-        "fileId": "={{ $json.message.voice.file_id }}",
+        "fileId": "={{ $('Switch').item.json.message.voice.file_id }}",
         "additionalFields": {}
       },
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        -144,
-        352
+        -528,
+        3392
       ],
-      "id": "0d5b0a15-1c44-4772-8f91-965687b750ac",
-      "name": "Telegram1",
+      "id": "c3e09686-8a27-4c2d-a937-979b70a8d1f3",
+      "name": "Get Voice File",
       "webhookId": "59b17c13-3966-41b0-8494-4255c97083bf",
       "credentials": {
         "telegramApi": {
@@ -232,11 +258,11 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        192,
-        352
+        -80,
+        3392
       ],
-      "id": "e4e71509-9bc1-4415-bea8-995c3cc77b06",
-      "name": "Edit Fields1"
+      "id": "d2428cb4-b06c-440a-9da1-b9084301635d",
+      "name": "Edit Fields Voice"
     },
     {
       "parameters": {
@@ -247,11 +273,11 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 1.8,
       "position": [
-        32,
-        352
+        -320,
+        3392
       ],
-      "id": "031f69cc-c56d-4566-9619-68e47518a1ee",
-      "name": "OpenAI",
+      "id": "cd07631f-ba7e-4c2e-b6df-6467d6d26a0c",
+      "name": "OpenAI Whisper",
       "credentials": {
         "openAiApi": {
           "id": "Onpesnu9m1kRKPmV",
@@ -261,7 +287,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Get list of all projects with their IDs and names. Use this first to find project_id when user mentions a project by name.",
+        "toolDescription": "Get list of all projects with their IDs and names. Use this first to find project_id when user mentions a project by name. Returns array of projects with id, name, color, is_favorite fields.",
         "url": "https://api.todoist.com/rest/v2/projects",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "todoistOAuth2Api"
@@ -269,16 +295,12 @@
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
       "position": [
-        544,
-        464
+        320,
+        3616
       ],
-      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "id": "47239e6c-8e98-45b2-b17a-7289b5805a8b",
       "name": "Get Projects",
       "credentials": {
-        "todoistApi": {
-          "id": "pW5JLV6CvmUy4HmI",
-          "name": "Todoist account 2"
-        },
         "todoistOAuth2Api": {
           "id": "hPtY6N6XwloWJRly",
           "name": "Todoist account"
@@ -287,7 +309,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Get tasks. If project_id is provided - get tasks from that project only. If not provided - get ALL active tasks from all projects. Use Get Projects first to find the correct project_id by name. Show: title, due date, project name, id.",
+        "toolDescription": "Get tasks from Todoist. Parameters: project_id (optional) - filter by project, filter (optional) - Todoist filter like 'overdue', 'today', 'p1'. If no parameters - returns ALL active tasks. Returns array with id, content, description, project_id, priority (1-4), due object, labels.",
         "url": "https://api.todoist.com/rest/v2/tasks",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "todoistOAuth2Api",
@@ -297,6 +319,10 @@
             {
               "name": "project_id",
               "valueProvider": "modelOptional"
+            },
+            {
+              "name": "filter",
+              "valueProvider": "modelOptional"
             }
           ]
         }
@@ -304,16 +330,12 @@
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
       "position": [
-        656,
-        464
+        448,
+        3616
       ],
-      "id": "8ee5ce0b-3d01-4811-ba4e-ff0715078ba9",
+      "id": "c6bcf0c8-ab5f-4dcc-a9ba-40cfb886c79c",
       "name": "Get Tasks",
       "credentials": {
-        "todoistApi": {
-          "id": "pW5JLV6CvmUy4HmI",
-          "name": "Todoist account 2"
-        },
         "todoistOAuth2Api": {
           "id": "hPtY6N6XwloWJRly",
           "name": "Todoist account"
@@ -322,46 +344,16 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "=https://api.todoist.com/rest/v2/tasks/{taskid}/close",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "todoistOAuth2Api"
-      },
-      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
-      "typeVersion": 1.1,
-      "position": [
-        864,
-        464
-      ],
-      "id": "21c7f353-cab5-4e06-ad16-6deeb317fd67",
-      "name": "Complete Task",
-      "credentials": {
-        "todoistApi": {
-          "id": "pW5JLV6CvmUy4HmI",
-          "name": "Todoist account 2"
-        },
-        "todoistOAuth2Api": {
-          "id": "hPtY6N6XwloWJRly",
-          "name": "Todoist account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "toolDescription": "Create a new task. Use Get Projects first to find project_id by name. For subtasks, use Get Tasks to find parent_id of the parent task. If no project specified, task goes to Inbox. due_string should be in English.",
+        "toolDescription": "Create a new task in Todoist. Required: content (task title). Optional: description, project_id (use Get Projects to find), parent_id (for subtasks, use Get Tasks to find), priority (1=P4 normal, 2=P3 medium, 3=P2 high, 4=P1 urgent), due_string (English: 'today', 'tomorrow', 'next monday', 'jan 28 at 15:00'), due_date (YYYY-MM-DD format), labels (array of label names). Returns created task object with id field. IMPORTANT: Only pass parameters that have actual values, do not pass empty strings.",
         "method": "POST",
         "url": "https://api.todoist.com/rest/v2/tasks",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "todoistOAuth2Api",
-        "sendQuery": true,
-        "parametersQuery": {
+        "sendBody": true,
+        "parametersBody": {
           "values": [
             {
               "name": "content"
-            },
-            {
-              "name": "due_string",
-              "valueProvider": "modelOptional"
             },
             {
               "name": "description",
@@ -374,6 +366,22 @@
             {
               "name": "parent_id",
               "valueProvider": "modelOptional"
+            },
+            {
+              "name": "priority",
+              "valueProvider": "modelOptional"
+            },
+            {
+              "name": "due_string",
+              "valueProvider": "modelOptional"
+            },
+            {
+              "name": "due_date",
+              "valueProvider": "modelOptional"
+            },
+            {
+              "name": "labels",
+              "valueProvider": "modelOptional"
             }
           ]
         }
@@ -381,16 +389,12 @@
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
       "position": [
-        768,
-        464
+        592,
+        3616
       ],
-      "id": "b51b79ae-1c92-43d3-896d-15ed9ae08caf",
+      "id": "2deaebdb-d754-4efa-8fdf-f763f0f8786b",
       "name": "Create Task",
       "credentials": {
-        "todoistApi": {
-          "id": "pW5JLV6CvmUy4HmI",
-          "name": "Todoist account 2"
-        },
         "todoistOAuth2Api": {
           "id": "hPtY6N6XwloWJRly",
           "name": "Todoist account"
@@ -399,15 +403,37 @@
     },
     {
       "parameters": {
+        "toolDescription": "Update an existing task. Required: task_id in URL. Optional body params: content (new title), description, priority (1-4), due_string (English), due_date (YYYY-MM-DD), labels. Use Get Tasks first to find task_id. NOTE: Uses POST method, not PUT. IMPORTANT: Only pass parameters that have actual values.",
         "method": "POST",
-        "url": "=https://api.todoist.com/rest/v2/tasks/{taskid}",
+        "url": "=https://api.todoist.com/rest/v2/tasks/{{ $fromAI('task_id') }}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "todoistOAuth2Api",
-        "sendQuery": true,
-        "parametersQuery": {
+        "sendBody": true,
+        "parametersBody": {
           "values": [
             {
-              "name": "due_string"
+              "name": "content",
+              "valueProvider": "modelOptional"
+            },
+            {
+              "name": "description",
+              "valueProvider": "modelOptional"
+            },
+            {
+              "name": "priority",
+              "valueProvider": "modelOptional"
+            },
+            {
+              "name": "due_string",
+              "valueProvider": "modelOptional"
+            },
+            {
+              "name": "due_date",
+              "valueProvider": "modelOptional"
+            },
+            {
+              "name": "labels",
+              "valueProvider": "modelOptional"
             }
           ]
         }
@@ -415,16 +441,207 @@
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
       "position": [
-        1008,
-        464
+        736,
+        3616
       ],
-      "id": "de53a029-96c6-408a-8b76-b409d906e19f",
-      "name": "Update Time",
+      "id": "c5d314cb-c582-4672-927b-070824030bb4",
+      "name": "Update Task",
       "credentials": {
-        "todoistApi": {
-          "id": "pW5JLV6CvmUy4HmI",
-          "name": "Todoist account 2"
+        "todoistOAuth2Api": {
+          "id": "hPtY6N6XwloWJRly",
+          "name": "Todoist account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Mark a task as completed (close it). Required: task_id - the ID of the task to complete. Use Get Tasks first to find the task_id. Returns empty response on success.",
+        "method": "POST",
+        "url": "=https://api.todoist.com/rest/v2/tasks/{{ $fromAI('task_id') }}/close",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "todoistOAuth2Api"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        3616
+      ],
+      "id": "4328b8a0-f4fe-44aa-bd2f-0720e46b5a3b",
+      "name": "Complete Task",
+      "credentials": {
+        "todoistOAuth2Api": {
+          "id": "hPtY6N6XwloWJRly",
+          "name": "Todoist account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Delete a task permanently. Required: task_id - the ID of the task to delete. Use Get Tasks first to find the task_id. WARNING: This action cannot be undone. Returns empty response on success.",
+        "method": "DELETE",
+        "url": "=https://api.todoist.com/rest/v2/tasks/{{ $fromAI('task_id') }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "todoistOAuth2Api"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1008,
+        3616
+      ],
+      "id": "5a9f5f20-580a-4c0d-97a9-20e534c80b2d",
+      "name": "Delete Task",
+      "credentials": {
+        "todoistOAuth2Api": {
+          "id": "hPtY6N6XwloWJRly",
+          "name": "Todoist account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse callback_data format: action:task_id:value\nconst callbackData = $input.item.json.callback_query.data;\nconst [action, taskId, value] = callbackData.split(':');\n\nreturn {\n  json: {\n    action: action,\n    task_id: taskId,\n    value: value || '',\n    callback_query_id: $input.item.json.callback_query.id,\n    chat_id: $input.item.json.callback_query.from.id,\n    message_id: $input.item.json.callback_query.message.message_id\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -544,
+        3904
+      ],
+      "id": "c83e459e-5c04-4a2f-a69e-b91843dc38d1",
+      "name": "Parse Callback"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Parse Callback').item.json.action }}",
+                    "rightValue": "complete",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "complete-condition"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "complete"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Parse Callback').item.json.action }}",
+                    "rightValue": "delete",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "delete-condition"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "delete"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Parse Callback').item.json.action }}",
+                    "rightValue": "due",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "due-condition"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "due"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Parse Callback').item.json.action }}",
+                    "rightValue": "priority",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "priority-condition"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "priority"
+            }
+          ]
         },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -336,
+        3904
+      ],
+      "id": "c672ac0a-373b-4c52-8eb6-64833b08d1de",
+      "name": "Callback Action Switch"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.todoist.com/rest/v2/tasks/{{ $('Parse Callback').item.json.task_id }}/close",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "todoistOAuth2Api",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -112,
+        3776
+      ],
+      "id": "ae863bad-81fb-4f66-818a-f74aeebd3b21",
+      "name": "Complete Task (Callback)",
+      "credentials": {
         "todoistOAuth2Api": {
           "id": "hPtY6N6XwloWJRly",
           "name": "Todoist account"
@@ -434,23 +651,20 @@
     {
       "parameters": {
         "method": "DELETE",
-        "url": "=https://api.todoist.com/rest/v2/tasks/{taskid}",
+        "url": "=https://api.todoist.com/rest/v2/tasks/{{ $('Parse Callback').item.json.task_id }}",
         "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "todoistOAuth2Api"
+        "nodeCredentialType": "todoistOAuth2Api",
+        "options": {}
       },
-      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
-      "typeVersion": 1.1,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
-        1152,
-        464
+        -112,
+        3904
       ],
-      "id": "85b3495e-23c3-47f0-be34-f5111f348463",
-      "name": "Delete Task",
+      "id": "6c179254-49a6-43c0-896a-c55fef52f6f0",
+      "name": "Delete Task (Callback)",
       "credentials": {
-        "todoistApi": {
-          "id": "pW5JLV6CvmUy4HmI",
-          "name": "Todoist account 2"
-        },
         "todoistOAuth2Api": {
           "id": "hPtY6N6XwloWJRly",
           "name": "Todoist account"
@@ -460,64 +674,242 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.todoist.com/rest/v2/projects",
+        "url": "=https://api.todoist.com/rest/v2/tasks/{{ $('Parse Callback').item.json.task_id }}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "todoistOAuth2Api",
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            {
-              "name": "name",
-              "value": "Tasks for the lesson"
-            }
-          ]
-        },
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "X-Request-Id",
-              "value": "$(uuidgen)"
-            }
-          ]
-        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\"due_string\": $('Parse Callback').item.json.value === 'today' ? 'today' : $('Parse Callback').item.json.value === 'tomorrow' ? 'tomorrow' : 'next week'} }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1584,
-        224
+        -112,
+        4016
       ],
-      "id": "909c8a59-51c6-4d2e-899c-dd2e5ad0d66f",
-      "name": "HTTP Request1"
+      "id": "a36ac633-762b-45b4-8d8c-3ee1e83146ae",
+      "name": "Update Due (Callback)",
+      "credentials": {
+        "todoistOAuth2Api": {
+          "id": "hPtY6N6XwloWJRly",
+          "name": "Todoist account"
+        }
+      }
     },
     {
       "parameters": {
-        "assignments": {
-          "assignments": [
+        "method": "POST",
+        "url": "=https://api.todoist.com/rest/v2/tasks/{{ $('Parse Callback').item.json.task_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "todoistOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\"priority\": parseInt($('Parse Callback').item.json.value)} }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -112,
+        4144
+      ],
+      "id": "b8006350-bff4-46ec-8513-bfc006dd6df7",
+      "name": "Update Priority (Callback)",
+      "credentials": {
+        "todoistOAuth2Api": {
+          "id": "hPtY6N6XwloWJRly",
+          "name": "Todoist account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare callback result with task name\nconst parseCallback = $('Parse Callback').item.json;\nconst taskInfo = $('Get Task Info').item.json;\nconst action = parseCallback.action;\nconst value = parseCallback.value;\n\n// Get task name (or fallback if task was deleted/not found)\nconst taskName = taskInfo.content || 'Задача';\n\nlet actionText = '';\nswitch(action) {\n  case 'complete': actionText = '✅ Задача выполнена!'; break;\n  case 'delete': actionText = '🗑 Задача удалена!'; break;\n  case 'due': \n    const dueText = value === 'today' ? 'сегодня' : value === 'tomorrow' ? 'завтра' : 'на неделе';\n    actionText = '📅 Дедлайн: ' + dueText; \n    break;\n  case 'priority': \n    const pMap = {'4': '🔴 P1', '3': '🟠 P2', '2': '🟡 P3', '1': '⚪ P4'};\n    actionText = pMap[value] || '🔴 Приоритет обновлён!';\n    break;\n  default: actionText = '✅ Готово!';\n}\n\nconst text = '*' + taskName + '*\\n' + actionText;\n\nreturn {\n  json: {\n    text: text,\n    chat_id: parseCallback.chat_id,\n    callback_query_id: parseCallback.callback_query_id\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        176,
+        3936
+      ],
+      "id": "95b8db30-909b-4eda-b0eb-3b89eb56e691",
+      "name": "Callback Result"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot8586070786:AAGTozpD6Q6TjLpUQkk39rHZE-iH2InrmVI/answerCallbackQuery",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ callback_query_id: $json.callback_query_id }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        384,
+        3936
+      ],
+      "id": "0d3f1163-ec9b-455c-bcb1-cfdff0f9c6f6",
+      "name": "HTTP Answer Callback"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot8586070786:AAGTozpD6Q6TjLpUQkk39rHZE-iH2InrmVI/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: $('Callback Result').item.json.chat_id, text: $('Callback Result').item.json.text, parse_mode: 'Markdown' }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        608,
+        3936
+      ],
+      "id": "9631299a-f12b-42dd-ad85-80b92418c6a4",
+      "name": "HTTP Send Callback Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract task_id from AI Agent output\nconst output = $input.item.json.output;\nconst taskIdMatch = output.match(/\\[TASK_ID:(\\d+)\\]/);\n\nlet taskId = '';\nlet cleanOutput = output;\n\nif (taskIdMatch) {\n  taskId = taskIdMatch[1];\n  cleanOutput = output.replace(/\\[TASK_ID:\\d+\\]/, '').trim();\n}\n\n// Remove markdown code blocks if present\ncleanOutput = cleanOutput.replace(/```/g, '').trim();\n\nconst chatId = $('Telegram Trigger').item.json.message?.from?.id;\n\n// Build inline keyboard\nconst replyMarkup = {\n  inline_keyboard: [\n    [\n      { text: '📅 Сегодня', callback_data: 'due:' + taskId + ':today' },\n      { text: '📅 Завтра', callback_data: 'due:' + taskId + ':tomorrow' },\n      { text: '📅 На неделе', callback_data: 'due:' + taskId + ':next_week' }\n    ],\n    [\n      { text: '🔴 P1', callback_data: 'priority:' + taskId + ':4' },\n      { text: '🟠 P2', callback_data: 'priority:' + taskId + ':3' },\n      { text: '🟡 P3', callback_data: 'priority:' + taskId + ':2' },\n      { text: '⚪ P4', callback_data: 'priority:' + taskId + ':1' }\n    ],\n    [\n      { text: '✔️ Выполнить', callback_data: 'complete:' + taskId + ':' },\n      { text: '🗑 Удалить', callback_data: 'delete:' + taskId + ':' }\n    ]\n  ]\n};\n\nreturn {\n  json: {\n    chat_id: chatId,\n    text: cleanOutput,\n    task_id: taskId,\n    reply_markup: replyMarkup\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        816,
+        3072
+      ],
+      "id": "e61721a8-ec32-4b92-93fd-fdae091133fe",
+      "name": "Build Message with Buttons"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot8586070786:AAGTozpD6Q6TjLpUQkk39rHZE-iH2InrmVI/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: $json.chat_id, text: $json.text, reply_markup: $json.reply_markup }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1008,
+        3072
+      ],
+      "id": "94019bd4-9d6e-43af-9437-48601e6cf822",
+      "name": "HTTP Send Telegram"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
             {
-              "id": "165d5cc7-6cae-45dd-bf87-47d860b49f7c",
-              "name": "project id",
-              "value": "2351335127",
-              "type": "string"
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output }}",
+                    "rightValue": "Задача создана",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    },
+                    "id": "task-created-condition"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "with_buttons"
             }
           ]
         },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        592,
+        3168
+      ],
+      "id": "4923ec23-27be-4d08-b899-a1f77f33f89b",
+      "name": "Check Task Created"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot8586070786:AAGTozpD6Q6TjLpUQkk39rHZE-iH2InrmVI/sendChatAction",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: $json.message.from.id, action: 'typing' }) }}",
         "options": {}
       },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
-        1584,
-        32
+        -544,
+        3200
       ],
-      "id": "251e16fd-c281-466f-99ef-42bbf335081b",
-      "name": "Edit Fields2"
+      "id": "typing-indicator-text",
+      "name": "Typing (Text)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot8586070786:AAGTozpD6Q6TjLpUQkk39rHZE-iH2InrmVI/sendChatAction",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: $json.message.from.id, action: 'typing' }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -720,
+        3392
+      ],
+      "id": "typing-indicator-voice",
+      "name": "Typing (Voice)"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.todoist.com/rest/v2/tasks/{{ $json.task_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "todoistOAuth2Api",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -336,
+        3800
+      ],
+      "id": "get-task-info-callback",
+      "name": "Get Task Info",
+      "credentials": {
+        "todoistOAuth2Api": {
+          "id": "hPtY6N6XwloWJRly",
+          "name": "Todoist account"
+        }
+      }
     }
   ],
   "pinData": {},
@@ -526,7 +918,7 @@
       "main": [
         [
           {
-            "node": "Telegram",
+            "node": "Check Task Created",
             "type": "main",
             "index": 0
           }
@@ -570,14 +962,43 @@
       "main": [
         [
           {
-            "node": "Edit Fields",
+            "node": "Typing (Text)",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Telegram1",
+            "node": "Typing (Voice)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parse Callback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Typing (Text)": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Typing (Voice)": {
+      "main": [
+        [
+          {
+            "node": "Get Voice File",
             "type": "main",
             "index": 0
           }
@@ -595,18 +1016,18 @@
         ]
       ]
     },
-    "Telegram1": {
+    "Get Voice File": {
       "main": [
         [
           {
-            "node": "OpenAI",
+            "node": "OpenAI Whisper",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Edit Fields1": {
+    "Edit Fields Voice": {
       "main": [
         [
           {
@@ -617,11 +1038,11 @@
         ]
       ]
     },
-    "OpenAI": {
+    "OpenAI Whisper": {
       "main": [
         [
           {
-            "node": "Edit Fields1",
+            "node": "Edit Fields Voice",
             "type": "main",
             "index": 0
           }
@@ -661,7 +1082,7 @@
         ]
       ]
     },
-    "Complete Task": {
+    "Update Task": {
       "ai_tool": [
         [
           {
@@ -672,7 +1093,7 @@
         ]
       ]
     },
-    "Update Time": {
+    "Complete Task": {
       "ai_tool": [
         [
           {
@@ -693,22 +1114,171 @@
           }
         ]
       ]
+    },
+    "Parse Callback": {
+      "main": [
+        [
+          {
+            "node": "Get Task Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Task Info": {
+      "main": [
+        [
+          {
+            "node": "Callback Action Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Callback Action Switch": {
+      "main": [
+        [
+          {
+            "node": "Complete Task (Callback)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Delete Task (Callback)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Due (Callback)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Priority (Callback)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Complete Task (Callback)": {
+      "main": [
+        [
+          {
+            "node": "Callback Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Task (Callback)": {
+      "main": [
+        [
+          {
+            "node": "Callback Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Due (Callback)": {
+      "main": [
+        [
+          {
+            "node": "Callback Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Priority (Callback)": {
+      "main": [
+        [
+          {
+            "node": "Callback Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Callback Result": {
+      "main": [
+        [
+          {
+            "node": "HTTP Answer Callback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Answer Callback": {
+      "main": [
+        [
+          {
+            "node": "HTTP Send Callback Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Task Created": {
+      "main": [
+        [
+          {
+            "node": "Build Message with Buttons",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Message with Buttons": {
+      "main": [
+        [
+          {
+            "node": "HTTP Send Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1",
     "availableInMCP": false,
     "timeSavedMode": "fixed",
     "timezone": "Europe/Sarajevo",
     "callerPolicy": "workflowsFromSameOwner",
-    "errorWorkflow": "d_mU3EirJcsoUmpisSeH8"
+    "errorWorkflow": "d_mU3EirJcsoUmpisSeH8",
+    "executionTimeout": -1
   },
-  "versionId": "e2c7e883-2bf1-4224-85e3-8d80e3b37b6c",
+  "versionId": "0c917215-ed42-49f2-ab77-232806c6d07d",
   "meta": {
-    "templateCredsSetupCompleted": true,
     "instanceId": "ba34d92288f3f9c6d5c53a9c25811fae6f2d826715e168bb2dba830c0bf941e8"
   },
-  "id": "tmjsH6VQyHr2ij_ECuPoN",
+  "id": "oN7DrKr78F8REt9EJ_dKf",
   "tags": []
 }
