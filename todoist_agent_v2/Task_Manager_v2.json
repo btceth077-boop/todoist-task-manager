@@ -611,6 +611,102 @@
               },
               "renameOutput": true,
               "outputKey": "priority"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Parse Callback').item.json.action }}",
+                    "rightValue": "duemenu",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "duemenu-condition"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "duemenu"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Parse Callback').item.json.action }}",
+                    "rightValue": "duedate",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "duedate-condition"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "duedate"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Parse Callback').item.json.action }}",
+                    "rightValue": "duefull",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "duefull-condition"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "duefull"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Parse Callback').item.json.action }}",
+                    "rightValue": "cancel",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "cancel-condition"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "cancel"
             }
           ]
         },
@@ -725,7 +821,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Prepare callback result with task name\nconst parseCallback = $('Parse Callback').item.json;\nconst taskInfo = $('Get Task Info').item.json;\nconst action = parseCallback.action;\nconst value = parseCallback.value;\n\n// Get task name (or fallback if task was deleted/not found)\nconst taskName = taskInfo.content || 'Задача';\n\nlet actionText = '';\nswitch(action) {\n  case 'complete': actionText = '✅ Задача выполнена!'; break;\n  case 'delete': actionText = '🗑 Задача удалена!'; break;\n  case 'due': \n    const dueText = value === 'today' ? 'сегодня' : value === 'tomorrow' ? 'завтра' : 'на неделе';\n    actionText = '📅 Дедлайн: ' + dueText; \n    break;\n  case 'priority': \n    const pMap = {'4': '🔴 P1', '3': '🟠 P2', '2': '🟡 P3', '1': '⚪ P4'};\n    actionText = pMap[value] || '🔴 Приоритет обновлён!';\n    break;\n  default: actionText = '✅ Готово!';\n}\n\nconst text = '*' + taskName + '*\\n' + actionText;\n\nreturn {\n  json: {\n    text: text,\n    chat_id: parseCallback.chat_id,\n    callback_query_id: parseCallback.callback_query_id\n  }\n};"
+        "jsCode": "// Prepare callback result with task name\nconst parseCallback = $('Parse Callback').item.json;\nconst taskInfo = $('Get Task Info').item.json;\nconst action = parseCallback.action;\nconst value = parseCallback.value;\n\n// Get task name (or fallback if task was deleted/not found)\nconst taskName = taskInfo.content || 'Задача';\n\nlet actionText = '';\nswitch(action) {\n  case 'complete': actionText = '✅ Задача выполнена!'; break;\n  case 'delete': actionText = '🗑 Задача удалена!'; break;\n  case 'due': \n    const dueText = value === 'today' ? 'сегодня' : value === 'tomorrow' ? 'завтра' : 'на неделе';\n    actionText = '📅 Дедлайн: ' + dueText; \n    break;\n  case 'duedate':\n    const dateMap = {'today': 'сегодня', 'tomorrow': 'завтра', 'next week': 'на неделе'};\n    actionText = '📅 Дедлайн: ' + (dateMap[value] || value);\n    break;\n  case 'duefull':\n    const parts = value.split('_');\n    const dateP = parts[0] === 'today' ? 'сегодня' : parts[0] === 'tomorrow' ? 'завтра' : parts[0];\n    const timeP = parts[1] || '';\n    actionText = '📅 Дедлайн: ' + dateP + ' в ' + timeP;\n    break;\n  case 'priority': \n    const pMap = {'4': '🔴 P1', '3': '🟠 P2', '2': '🟡 P3', '1': '⚪ P4'};\n    actionText = pMap[value] || '🔴 Приоритет обновлён!';\n    break;\n  default: actionText = '✅ Готово!';\n}\n\nconst text = '*' + taskName + '*\\n' + actionText;\n\nreturn {\n  json: {\n    text: text,\n    chat_id: parseCallback.chat_id,\n    callback_query_id: parseCallback.callback_query_id\n  }\n};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -910,6 +1006,138 @@
           "name": "Todoist account"
         }
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build time selection menu\nconst taskId = $('Parse Callback').item.json.task_id;\nconst taskName = $('Get Task Info').item.json.content || 'Задача';\n\nreturn {\n  json: {\n    chat_id: $('Parse Callback').item.json.chat_id,\n    callback_query_id: $('Parse Callback').item.json.callback_query_id,\n    text: '📅 Выбери время для:\\n*' + taskName + '*',\n    parse_mode: 'Markdown',\n    reply_markup: {\n      inline_keyboard: [\n        [\n          { text: '📅 Сегодня', callback_data: 'duedate:' + taskId + ':today' },\n          { text: '📅 Завтра', callback_data: 'duedate:' + taskId + ':tomorrow' },\n          { text: '📅 Неделя', callback_data: 'duedate:' + taskId + ':next week' }\n        ],\n        [\n          { text: '🕘 09:00', callback_data: 'duefull:' + taskId + ':today_09:00' },\n          { text: '🕛 12:00', callback_data: 'duefull:' + taskId + ':today_12:00' },\n          { text: '🕒 15:00', callback_data: 'duefull:' + taskId + ':today_15:00' },\n          { text: '🕕 18:00', callback_data: 'duefull:' + taskId + ':today_18:00' }\n        ],\n        [\n          { text: '⏰ Без времени', callback_data: 'duedate:' + taskId + ':today' },\n          { text: '❌ Отмена', callback_data: 'cancel:' + taskId + ':' }\n        ]\n      ]\n    }\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -112,
+        4272
+      ],
+      "id": "time-menu-code",
+      "name": "Time Menu"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot8586070786:AAGTozpD6Q6TjLpUQkk39rHZE-iH2InrmVI/answerCallbackQuery",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ callback_query_id: $json.callback_query_id }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        96,
+        4272
+      ],
+      "id": "answer-callback-menu",
+      "name": "Answer Callback (Menu)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot8586070786:AAGTozpD6Q6TjLpUQkk39rHZE-iH2InrmVI/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: $('Time Menu').item.json.chat_id, text: $('Time Menu').item.json.text, parse_mode: $('Time Menu').item.json.parse_mode, reply_markup: $('Time Menu').item.json.reply_markup }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        304,
+        4272
+      ],
+      "id": "send-time-menu",
+      "name": "HTTP Send Time Menu"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.todoist.com/rest/v2/tasks/{{ $('Parse Callback').item.json.task_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "todoistOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\"due_string\": $('Parse Callback').item.json.value} }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -112,
+        4400
+      ],
+      "id": "update-due-date",
+      "name": "Update Due Date (Callback)",
+      "credentials": {
+        "todoistOAuth2Api": {
+          "id": "hPtY6N6XwloWJRly",
+          "name": "Todoist account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.todoist.com/rest/v2/tasks/{{ $('Parse Callback').item.json.task_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "todoistOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\"due_string\": $('Parse Callback').item.json.value.replace('_', ' at ')} }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -112,
+        4528
+      ],
+      "id": "update-due-full",
+      "name": "Update Due Full (Callback)",
+      "credentials": {
+        "todoistOAuth2Api": {
+          "id": "hPtY6N6XwloWJRly",
+          "name": "Todoist account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Cancel action - just acknowledge\nreturn {\n  json: {\n    text: '❌ Отменено',\n    chat_id: $('Parse Callback').item.json.chat_id,\n    callback_query_id: $('Parse Callback').item.json.callback_query_id\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -112,
+        4656
+      ],
+      "id": "cancel-code",
+      "name": "Cancel Result"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot8586070786:AAGTozpD6Q6TjLpUQkk39rHZE-iH2InrmVI/answerCallbackQuery",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ callback_query_id: $json.callback_query_id, text: $json.text }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        96,
+        4656
+      ],
+      "id": "answer-callback-cancel",
+      "name": "Answer Callback (Cancel)"
     }
   ],
   "pinData": {},
@@ -1166,6 +1394,34 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Time Menu",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Due Date (Callback)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Due Full (Callback)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Cancel Result",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -1258,6 +1514,61 @@
         [
           {
             "node": "HTTP Send Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Time Menu": {
+      "main": [
+        [
+          {
+            "node": "Answer Callback (Menu)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Answer Callback (Menu)": {
+      "main": [
+        [
+          {
+            "node": "HTTP Send Time Menu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Due Date (Callback)": {
+      "main": [
+        [
+          {
+            "node": "Callback Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Due Full (Callback)": {
+      "main": [
+        [
+          {
+            "node": "Callback Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cancel Result": {
+      "main": [
+        [
+          {
+            "node": "Answer Callback (Cancel)",
             "type": "main",
             "index": 0
           }

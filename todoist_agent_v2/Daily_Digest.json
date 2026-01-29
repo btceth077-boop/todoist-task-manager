@@ -1,0 +1,135 @@
+{
+  "name": "Daily Digest",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -400,
+        300
+      ],
+      "id": "schedule-trigger-digest",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.todoist.com/rest/v2/tasks",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "todoistOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "filter",
+              "value": "today"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -180,
+        300
+      ],
+      "id": "get-today-tasks",
+      "name": "Get Today Tasks",
+      "credentials": {
+        "todoistOAuth2Api": {
+          "id": "hPtY6N6XwloWJRly",
+          "name": "Todoist account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const tasks = $input.all();\nconst chatId = '707937085'; // Your Telegram chat ID\n\nif (tasks.length === 0 || (tasks.length === 1 && !tasks[0].json.id)) {\n  return {\n    json: {\n      chat_id: chatId,\n      text: '🌅 *Доброе утро!*\\n\\nНа сегодня задач нет. Отличный день! 🎉',\n      parse_mode: 'Markdown',\n      reply_markup: null\n    }\n  };\n}\n\nlet text = '🌅 *Доброе утро!*\\n\\n';\nconst taskCount = tasks.length;\nlet taskWord = 'задач';\nif (taskCount === 1) taskWord = 'задача';\nelse if (taskCount >= 2 && taskCount <= 4) taskWord = 'задачи';\n\ntext += `У тебя *${taskCount}* ${taskWord} на сегодня:\\n\\n`;\n\nconst buttons = [];\nconst priorityEmoji = {'4': '🔴', '3': '🟠', '2': '🟡', '1': '⚪'};\n\ntasks.forEach((task, i) => {\n  const t = task.json;\n  const num = i + 1;\n  const emoji = priorityEmoji[t.priority] || '⚪';\n\n  let timeStr = '';\n  if (t.due && t.due.datetime) {\n    const d = new Date(t.due.datetime);\n    const hours = d.getHours().toString().padStart(2, '0');\n    const minutes = d.getMinutes().toString().padStart(2, '0');\n    timeStr = ' — ' + hours + ':' + minutes;\n  }\n\n  text += `${num}️⃣ *${t.content}*${timeStr} ${emoji}\\n`;\n\n  buttons.push([\n    { text: `✅${num}`, callback_data: 'complete:' + t.id + ':' },\n    { text: `📅${num}`, callback_data: 'duemenu:' + t.id + ':' },\n    { text: `🗑${num}`, callback_data: 'delete:' + t.id + ':' }\n  ]);\n});\n\nreturn {\n  json: {\n    chat_id: chatId,\n    text: text,\n    parse_mode: 'Markdown',\n    reply_markup: { inline_keyboard: buttons }\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        40,
+        300
+      ],
+      "id": "format-digest",
+      "name": "Format Digest"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot8586070786:AAGTozpD6Q6TjLpUQkk39rHZE-iH2InrmVI/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: $json.chat_id, text: $json.text, parse_mode: $json.parse_mode, reply_markup: $json.reply_markup }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        260,
+        300
+      ],
+      "id": "send-digest",
+      "name": "HTTP Send Digest"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Today Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Today Tasks": {
+      "main": [
+        [
+          {
+            "node": "Format Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Digest": {
+      "main": [
+        [
+          {
+            "node": "HTTP Send Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Sarajevo"
+  },
+  "versionId": "daily-digest-v1",
+  "meta": {
+    "instanceId": "ba34d92288f3f9c6d5c53a9c25811fae6f2d826715e168bb2dba830c0bf941e8"
+  },
+  "id": "daily-digest-workflow",
+  "tags": []
+}
